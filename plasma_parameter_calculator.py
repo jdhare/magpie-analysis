@@ -122,7 +122,7 @@ class Plasma:
         ma='Mach-Alfven number = '+str(round_to_n(self.M_a,2))
 
         txtstr=im+'\n'+em+'\n'+b+'\n'+br+'\n'+m+'\n'+ma+'\n'+rm+'\n'+S+'\n'+H
-        print txtstr
+        print(txtstr)
 
 def col_log_eis(T_e,n_e,Z):
     if T_e<10*Z**2: #see NRL formulary pg 34
