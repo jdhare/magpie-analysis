@@ -5,10 +5,10 @@ import scipy.integrate
 
 class ScopeChannel:
     def __init__(self, shot, scope, channel):
-        fn="/media/nest_files/magpie_scopes/scope"+scope+"_"+shot
+        fn="//LINNA/scopes/scope"+scope+"_"+shot
         self.time=np.loadtxt(fn+"time")
         self.data=np.loadtxt(fn+"_"+channel)[1:]
-        
+                
 class Bdot_pair:
     def __init__(self, shot, scope="1", bdot1='A1', bdot2='A2'):
         self.shot=shot
@@ -93,3 +93,64 @@ class Bdots:
     def plot_B(self, name):
         self.bd[name].plot_B()
             
+            
+class Rogowskis:
+    def __init__(self, shot):
+        self.shot=shot
+        #rogowski 1 and 2      
+        self.bd1=ScopeChannel(shot, '2', 'c1')
+        self.bd2=ScopeChannel(shot, '2', 'c2')
+    def truncate(self, threshold=0.2, window=1000, cal=[10*10.4*3e9,-10.48*10.79*3e9]):
+        #find the start of the current pulse with a  high threshold
+        sig1=self.bd1.data
+        start=np.nonzero(abs(sig1)>threshold)[0][0]
+        #back off a bit so we can see the zero signal
+        self.start=start-50
+        self.time=self.bd1.time[self.start:self.start+window]
+        z1=np.mean(self.bd1.data[0:200]) #zero the data
+        z2=np.mean(self.bd2.data[0:200])
+        self.bd1_tr=(self.bd1.data[self.start:self.start+window]-z1)*cal[0]
+        self.bd2_tr=(self.bd2.data[self.start:self.start+window]-z2)*cal[1]
+    def integrate(self, return_posts=8):
+        self.I1=scipy.integrate.cumtrapz(self.bd1_tr,self.time)/1e9
+        self.I2=scipy.integrate.cumtrapz(self.bd2_tr,self.time)/1e9
+        if self.I2.max()<5e4:
+            self.I_Tot=self.I1*return_posts
+            print(self.shot+": using Rog 1 only")
+        if self.I1.max()<5e4:
+            self.I_Tot=self.I2*return_posts
+            print(self.shot+": using Rog 2 only")
+        if self.I1.max()>5e4 and self.I2.max()>5e4:
+            self.I_Tot=(self.I1+self.I2)*return_posts/2.0
+            print(self.shot+": using both Rogs")
+        self.time_I=self.time[:-1]
+    def plot(self, data, ax=None, scale=1, bdname=None):
+        if ax is None:
+            fig, ax=plt.subplots()
+        if data is "raw":
+            t=self.bd1.time
+            d1=self.bd1.data
+            d2=self.bd2.data
+            l1='R1 raw'
+            l2='R2 raw'
+        if data is "tr":
+            t=self.time
+            d1=self.bd1_tr
+            d2=self.bd2_tr
+            l1='R1 truncated'
+            l2='R2 truncated'
+        if data is "I":
+            t=self.time_I
+            d1=self.I1
+            d2=self.I2
+            l1='R1 Current'
+            l2='R2 Current'
+        if data is "I_Tot":
+            t=self.time_I
+            d1=self.I_Tot
+            d2=None
+            l1=self.shot+' Current'
+        ax.plot(t, scale*d1, label=l1, lw=4)
+        if d2 is not None:
+            ax.plot(t, scale*d2, label=l2, lw=4)
+        ax.legend()

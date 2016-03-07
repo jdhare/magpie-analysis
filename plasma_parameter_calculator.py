@@ -90,26 +90,25 @@ class Plasma:
         self.mfp_e=self.V_te/self.nu_ei#cm
         #other
         self.eta_perp=1.03e-2*self.Z*self.col_log_ei*self.T_e**-1.5 #Ohm cm
+        self.visc=2e19*T_e**2.5/(self.col_log_ei*A**0.5*Z**4*n_i) #cm^2/s
         self.sigma_par=0.028*n_e/self.nu_ei#this could be in SI. Probably check before using elsewhere...
-        self.KE=0.5*m_i*self.V**2*1e-7/1.6e-19#convert to SI (1e-7 ergs) and then to eV (1.6e-19)
+        self.KE=0.5*m_i*V**2*1e-7/1.6e-19#convert to SI (1e-7 ergs) and then to eV (1.6e-19)
         self.KE_Therm=self.KE/1.5
         #dimensionless parameters
         self.beta=2.03e-11*(n_e*T_e+n_i*T_i)/B**2#note coefficient is half of NRL as we have Z=/=1
-        if self.V!=None:
-            self.beta_kin=(2*np.pi*A*1.67e-24*n_i*self.V**2)/(B**2)#CGS formulation
+        self.beta_kin=(2*np.pi*A*1.67e-24*n_i*self.V**2)/(B**2)#CGS formulation
         self.i_mag=self.om_ci/self.nu_ie
         self.e_mag=self.om_ce/self.nu_ei
-        if self.V!=None and self.L!=None:
-            self.Rm_old=4e-11*np.pi*self.V*self.L*self.sigma_par#mu_0*sigma*V*L in SI, so some CGS->SI conversion here 
-            self.Rm=1e2*4e-11*np.pi*self.V*self.L/self.eta_perp#mu_0*V*L/eta_perp in SI, so some CGS->SI conversion here 
-            self.Al=self.V_A/self.V #Alfven number
-            self.S=self.Al*self.Rm #Lundquist number
+        self.M_S=V/self.V_S
+        self.M_A=V/self.V_A
+        self.Re_M=1e2*4e-11*np.pi*self.V*self.L/self.eta_perp#mu_0*V*L/eta_perp in SI, so some CGS->SI conversion here
+        self.Re=self.L*self.V/self.visc
+        self.Pr_M=self.Re_M/self.Re
+        self.S=self.Re_M/self.M_A #Lundquist number
         chi=self.e_mag #this makes life easier for the next equation
         self.kappa_c_perp=(gp1*chi+g0)/(chi**3+cp2*chi**2+cp1*chi*cp0)#Epperlein and Haines
         self.H=self.kappa_c_perp*self.beta*self.e_mag/5.0#Haines number, Hall/Nernst, Joglekar 2014
         self.S_N=self.H*self.e_mag #Lundquist Nernst number #Joglekar 2014
-        self.M_s=V/self.V_S
-        self.M_a=V/self.V_A
     def print_dim_params(self):
         im='Ion magnetisation = '+str(round_to_n(self.i_mag,2))
         em='Electron magnetisation = '+str(round_to_n(self.e_mag,2))
