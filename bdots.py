@@ -100,15 +100,16 @@ class Rogowskis:
         #rogowski 1 and 2      
         self.bd1=ScopeChannel(shot, '2', 'c1')
         self.bd2=ScopeChannel(shot, '2', 'c2')
-    def truncate(self, threshold=0.2, window=1000, cal=[10*10.4*3e9,-10.48*10.79*3e9]):
+    def truncate(self, threshold=0.2, window=1000, cal=[10*10.4*3e9,-10.48*10.79*3e9], start_offset=50):
         #find the start of the current pulse with a  high threshold
         sig1=self.bd1.data
         start=np.nonzero(abs(sig1)>threshold)[0][0]
         #back off a bit so we can see the zero signal
-        self.start=start-50
+        self.start=start-start_offset
         self.time=self.bd1.time[self.start:self.start+window]
-        z1=np.mean(self.bd1.data[0:200]) #zero the data
-        z2=np.mean(self.bd2.data[0:200])
+        z1=np.mean(self.bd1.data[0:1000]) #zero the data
+        z2=np.mean(self.bd2.data[0:1000])
+        self.bd1_z=self.bd1.data-z1
         self.bd1_tr=(self.bd1.data[self.start:self.start+window]-z1)*cal[0]
         self.bd2_tr=(self.bd2.data[self.start:self.start+window]-z2)*cal[1]
     def integrate(self, return_posts=8):
