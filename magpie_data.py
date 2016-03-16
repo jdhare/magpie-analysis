@@ -10,12 +10,14 @@ import image_registration as ir
 
 
 class NeLMap:
-    def __init__(self, filename, scale, multiply_by=1, flip_lr=False):
+    def __init__(self, filename, scale, multiply_by=1, flip_lr=False, rot_angle=None):
         d=np.loadtxt(open(filename,"r"),delimiter=",")
         d=d-np.nan_to_num(d).min()
         d=np.nan_to_num(d)
         if flip_lr is True:
             d=np.fliplr(d)
+        if rot_angle is not None:
+            d=rotate(d, rot_angle)
         self.neL=d*multiply_by
         self.scale=scale
     def plot_neL(self, clim=[0,2], ax=None, transpose=False):

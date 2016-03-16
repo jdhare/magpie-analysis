@@ -131,8 +131,9 @@ class Rogowskis:
             self.I_Tot=(self.I1+self.I2)*return_posts/2.0
             print(self.shot+": using both Rogs")
         self.time_I=self.time[:-1]
-        t0=self.time_I[np.where(self.I_Tot>2e3)[0][0]]
-        self.time_0ed=self.time_I-t0
+        self.t0=self.time_I[np.where(self.I_Tot>2e3)[0][0]]
+        self.time_0ed=self.time_I-self.t0
+        self.Imax=self.I_Tot.max()/1e6
     def plot(self, data, ax=None, scale=1, bdname=None):
         if ax is None:
             fig, ax=plt.subplots()
