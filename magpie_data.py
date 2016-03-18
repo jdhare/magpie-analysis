@@ -6,7 +6,7 @@ from scipy.ndimage.interpolation import rotate
 from scipy.ndimage import zoom
 import os
 import image_registration as ir
-
+from skimage.measure import profile_line
 
 
 class NeLMap:
@@ -29,10 +29,13 @@ class NeLMap:
         ax.imshow(self.neL/1e18)#, cmap='afmhot', interpolation='none', clim=clim)
     def set_origin(self, origin, x_range=11.5, y_range=8.5):
         self.origin=origin
+        y0=y_range*self.scale
+        x0=x_range*self.scale
         ymin=origin[0]-y_range*self.scale
         ymax=origin[0]+y_range*self.scale
         xmin=origin[1]-x_range*self.scale
         xmax=origin[1]+x_range*self.scale
+        self.origin_crop=[y_range*self.scale,x_range*self.scale]
         self.neL_crop=self.neL[ymin:ymax, xmin:xmax]
         self.extent=[-x_range,x_range,-y_range,y_range]
     def plot_neL_mm(self,clim=[0,2], ax=None, transpose=False, cmap=cmaps.cmaps['inferno']):
@@ -44,18 +47,14 @@ class NeLMap:
             d=np.transpose(d)
             ex=ex[2:4]+ex[0:2]
         return ax.imshow(d, cmap=cmap, interpolation='none', clim=clim, extent=ex, aspect=1)
-    def create_lineout(self, axis, centre=None,average_over_px=20, mm_range=10):
-        px_range=mm_range*self.scale
-        if axis is 1:
-            d=np.transpose(self.neL)
-            y0=self.origin[1] if centre is None else centre
-            x0=self.origin[0]
-        if axis is 0:
-            d=self.neL
-            y0=self.origin[0] if centre is None else centre
-            x0=self.origin[1]
-        section=d[y0-average_over_px:y0+average_over_px, x0-px_range:x0+px_range]
-        self.lo=np.mean(section, axis=0)
+    def create_lineout(self, start=(0,0), end=(0,0), lineout_width=20):
+        '''
+        start and end are in mm on the grid defined by the origin you just set
+        '''
+        start_px=(int(start[0]*self.scale+self.origin_crop[0]),int(start[1]*self.scale+self.origin_crop[1]))
+        end_px=(int(end[0]*self.scale+self.origin_crop[0]),int(end[1]*self.scale+self.origin_crop[1]))
+        self.lo=profile_line(self.neL_crop, start_px,end_px,linewidth=lineout_width)
+        px_range=self.lo.size/2
         self.mm=np.linspace(px_range, -px_range, 2*px_range)/self.scale #flip range to match images
     def plot_lineout(self, ax=None, label=''):
         if ax is None:
