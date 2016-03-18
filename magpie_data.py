@@ -9,6 +9,62 @@ import image_registration as ir
 from skimage.measure import profile_line
 
 
+class TwoDData:
+    def plot_data_px(self, clim, multiply_by, ax=None):
+        if ax is None:
+            fig, ax=plt.subplots(figsize=(12,8))
+        d=self.data*multiply_by
+        ax.imshow(d, clim=clim, cmap=cmap)
+    def set_origin(self, origin, x_range, y_range):
+        self.origin=origin
+        y0=y_range*self.scale
+        x0=x_range*self.scale
+        ymin=origin[0]-y0
+        ymax=origin[0]+y0
+        xmin=origin[1]-x0
+        xmax=origin[1]+x0
+        self.origin_crop=[y_range*self.scale,x_range*self.scale]
+        self.data_c=self.data[ymin:ymax, xmin:xmax]
+        self.extent=[-x_range,x_range,-y_range,y_range]
+    def plot_data_mm(self, clim, multiply_by, ax=None):
+        if ax is None:
+            fig, ax=plt.subplots(figsize=(12,8))
+        d=self.data*multiply_by
+        ax.imshow(d, clim=clim, cmap=cmap)
+        return ax.imshow(d, cmap=cmap, interpolation='none', clim=clim, extent=self.extent)
+    def create_lineout(self, start=(0,0), end=(0,0), lineout_width=20):
+        '''
+        start and end are in mm on the grid defined by the origin you just set
+        '''
+        #find coordinates in pixels
+        start_px=mm_to_px(start)
+        end_px=mm_to_px(stop)
+        #use scikit image to do a nice lineout on the cropped array
+        self.lo=profile_line(self.data_c, start_px,end_px,linewidth=lineout_width)
+        #set up a mm scale centred on 0
+        px_range=self.lo.size/2
+        self.mm=np.linspace(px_range, -px_range, 2*px_range)/self.scale #flip range to match images
+    def plot_lineout(self, ax=None, label=''):
+        if ax is None:
+            fig, ax=plt.subplots(figsize=(12,8))
+        ax.plot(self.mm, self.lo/1e18, label=label, lw=4)        
+    def mm_to_px(mm):
+        scale=self.scale
+        px_origin=self.origin_crop
+        return (int(mm[0]*scale+px_origin[0]),int(mm[1]*scale+px_origin[1]))
+    
+class NeLMap2(TwoDData):
+    def __init__(self, filename, scale, multiply_by=1, flip_lr=False, rot_angle=None):
+        d=np.loadtxt(open(filename,"r"),delimiter=",")
+        d=d-np.nan_to_num(d).min()
+        d=np.nan_to_num(d)
+        if flip_lr is True:
+            d=np.fliplr(d)
+        if rot_angle is not None:
+            d=rotate(d, rot_angle)
+        self.data=d*multiply_by
+        self.scale=scale
+
 class NeLMap:
     def __init__(self, filename, scale, multiply_by=1, flip_lr=False, rot_angle=None):
         d=np.loadtxt(open(filename,"r"),delimiter=",")
@@ -51,15 +107,22 @@ class NeLMap:
         '''
         start and end are in mm on the grid defined by the origin you just set
         '''
-        start_px=(int(start[0]*self.scale+self.origin_crop[0]),int(start[1]*self.scale+self.origin_crop[1]))
-        end_px=(int(end[0]*self.scale+self.origin_crop[0]),int(end[1]*self.scale+self.origin_crop[1]))
+        #find coordinates in pixels
+        start_px=mm_to_px(start)
+        end_px=mm_to_px(stop)
+        #use scikit image to do a nice lineout on the cropped array
         self.lo=profile_line(self.neL_crop, start_px,end_px,linewidth=lineout_width)
+        #set up a mm scale centred on 0
         px_range=self.lo.size/2
         self.mm=np.linspace(px_range, -px_range, 2*px_range)/self.scale #flip range to match images
     def plot_lineout(self, ax=None, label=''):
         if ax is None:
             fig, ax=plt.subplots(figsize=(12,8))
-        ax.plot(self.mm, self.lo/1e18, label=label, lw=4)
+        ax.plot(self.mm, self.lo/1e18, label=label, lw=4)        
+    def mm_to_px(mm):
+        scale=self.scale
+        px_origin=self.origin_crop
+        return (int(mm[0]*scale+px_origin[0]),int(mm[1]*scale+px_origin[1]))
         
 class OpticalFrames:
     def __init__(self, start, IF):
@@ -227,3 +290,6 @@ class FaradayMap:
     def register(self):
         self.I0T, self.I1T, self.scale, self.angle, (self.t0, self.t1)=ir.transform_like(self.pm.B0,self.I0zcn, self.I1zc)
         self.B=5.99e18*self.pm.alpha/self.I1T
+        
+def mm_to_px(mm, px_origin, scale):
+    return (int(mm[0]*scale+px_origin_crop[0]),int(mm[1]*scale+px_origin_crop[1]))
