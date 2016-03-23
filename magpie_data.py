@@ -7,53 +7,59 @@ from scipy.ndimage import zoom
 import os
 import image_registration as ir
 from skimage.measure import profile_line
+import imreg_dft as ird
 
 
-class TwoDData:
-    def plot_data_px(self, clim, multiply_by, ax=None):
+class DataMap:
+    def __init__(self, flip_lr, rot_angle, multiply_by, scale):
+        if flip_lr is True:
+            self.d=np.fliplr(self.d)
+        if rot_angle is not None:
+            self.d=rotate(self.d, rot_angle)
+        self.data=self.d*multiply_by
+        self.scale=scale
+    def plot_data_px(self, clim=None, multiply_by=1, ax=None):
         if ax is None:
             fig, ax=plt.subplots(figsize=(12,8))
         d=self.data*multiply_by
-        ax.imshow(d, clim=clim, cmap=cmap)
-    def set_origin(self, origin, x_range, y_range):
+        return ax.imshow(d, clim=clim, cmap=self.cmap)
+    def set_origin(self, origin, crop_to):
         self.origin=origin
-        y0=y_range*self.scale
-        x0=x_range*self.scale
-        ymin=origin[0]-y0
-        ymax=origin[0]+y0
-        xmin=origin[1]-x0
-        xmax=origin[1]+x0
-        self.origin_crop=[y_range*self.scale,x_range*self.scale]
+        ymin=origin[0]+crop_to[0]*self.scale
+        ymax=origin[0]+crop_to[1]*self.scale
+        xmin=origin[1]+crop_to[2]*self.scale
+        xmax=origin[1]+crop_to[3]*self.scale
+        self.origin_crop=[crop_to[0]*self.scale,crop_to[2]*self.scale]
         self.data_c=self.data[ymin:ymax, xmin:xmax]
-        self.extent=[-x_range,x_range,-y_range,y_range]
-    def plot_data_mm(self, clim, multiply_by, ax=None):
+        self.extent=[x_min,x_max,y_min,y_max]
+    def plot_data_mm(self, clim=None, multiply_by=1, ax=None):
         if ax is None:
             fig, ax=plt.subplots(figsize=(12,8))
-        d=self.data*multiply_by
-        ax.imshow(d, clim=clim, cmap=cmap)
-        return ax.imshow(d, cmap=cmap, interpolation='none', clim=clim, extent=self.extent)
+        d=self.data_c*multiply_by
+        return ax.imshow(d, cmap=self.cmap, interpolation='none', clim=clim, extent=self.extent, aspect=1)
     def create_lineout(self, start=(0,0), end=(0,0), lineout_width=20):
         '''
         start and end are in mm on the grid defined by the origin you just set
         '''
         #find coordinates in pixels
-        start_px=mm_to_px(start)
-        end_px=mm_to_px(stop)
+        start_px=self.mm_to_px(start)
+        end_px=self.mm_to_px(end)
+        print(start_px,end_px)
         #use scikit image to do a nice lineout on the cropped array
         self.lo=profile_line(self.data_c, start_px,end_px,linewidth=lineout_width)
         #set up a mm scale centred on 0
         px_range=self.lo.size/2
         self.mm=np.linspace(px_range, -px_range, 2*px_range)/self.scale #flip range to match images
-    def plot_lineout(self, ax=None, label=''):
+    def plot_lineout(self, ax=None, label='', multiply_by=1):
         if ax is None:
             fig, ax=plt.subplots(figsize=(12,8))
-        ax.plot(self.mm, self.lo/1e18, label=label, lw=4)        
-    def mm_to_px(mm):
+        ax.plot(self.mm, self.lo*multiply_by, label=label, lw=4)        
+    def mm_to_px(self,mm):
         scale=self.scale
         px_origin=self.origin_crop
-        return (int(mm[0]*scale+px_origin[0]),int(mm[1]*scale+px_origin[1]))
+        return (int(-mm[0]*scale+px_origin[0]),int(mm[1]*scale+px_origin[1]))
     
-class NeLMap2(TwoDData):
+class NeLMap2(DataMap):
     def __init__(self, filename, scale, multiply_by=1, flip_lr=False, rot_angle=None):
         d=np.loadtxt(open(filename,"r"),delimiter=",")
         d=d-np.nan_to_num(d).min()
@@ -64,7 +70,85 @@ class NeLMap2(TwoDData):
             d=rotate(d, rot_angle)
         self.data=d*multiply_by
         self.scale=scale
+        self.cmap=cmaps.cmaps['inferno']
+        
+class PolarimetryMap2(DataMap):
+    def __init__(self, R0fn, R1fn, B0fn, B1fn, S0fn, S1fn):
+        self.R0=plt.imread(R0fn)
+        self.R1=np.fliplr(plt.imread(R1fn))
+        self.B0=plt.imread(B0fn)
+        self.B1=np.fliplr(plt.imread(B1fn))
+        self.S0=plt.imread(S0fn)
+        self.S1=np.fliplr(plt.imread(S1fn))
+        #normalise registration images
+        R0s=self.R0.sum()
+        R1s=self.R1.sum()
+        self.R0=self.R0*R1s/R0s
+        self.cmap='seismic'
+    def register(self):
+        self.result=ird.similarity(self.R0, self.R1, numiter=3)
+        self.BT=ird.transform_img_dict(self.B1, self.result)
+        self.ST=ird.transform_img_dict(self.S1, self.result)
+    def convert_to_alpha(self, beta=3.0):
+        self.N0=self.S0/self.B0
+        self.N1=self.ST/self.BT
+        diff=self.N0-self.N1
+        self.diff=np.nan_to_num(diff)
+        beta=beta*np.pi/180
+        self.data=(180/np.pi)*0.5*np.arcsin(self.diff*np.tan(beta)/2.0)
+        
+class InteferogramOntoAlpha(DataMap):
+    def __init__(self, polmap, I0, I1):
+        I0=plt.imread(I0)
+        self.I0s=np.sum(I0,2)
+        self.pm=polmap
+        #scale and flip registration to polarisation data
+        R0=self.pm.R0
+        scale=R0.shape[0]/self.I0s.shape[0]
+        I0z=zoom(self.I0s, scale)
+        crop=(I0z.shape[1]-R0.shape[1])/2
+        I0zc=I0z[:,crop:-crop]
+        self.I0zcn=np.flipud(I0zc/I0zc.max())
+        #do the same to the inteferogram
+        I1=plt.imread(I1)
+        I1s=np.sum(I1,2)
+        I1z=zoom(I1s, scale)
+        I1zc=I1z[:,crop:-crop]
+        self.I1zcf=np.flipud(I1zc)
+        self.cmap='gray'
+    def register(self):
+        self.transform=ird.similarity(self.pm.R0, self.I0zcn, numiter=3)
+        self.data=ird.transform_img_dict(self.I1zcf, self.transform)
+    def plot_overlay_px(self, clim=None, ax=None, transparency=0.8):
+        if ax is None:
+            fig, ax=plt.subplots(figsize=(12,8))
+        ax.imshow(self.pm.data, cmap='RdBu', clim=clim)
+        ax.imshow(self.data, cmap='gray', alpha=transparency)
 
+
+class FaradayMap2(DataMap):
+    def __init__(self, polmap, I0, ne):
+        I0=plt.imread(I0)
+        self.I0s=np.sum(I0,2)
+        I1=np.loadtxt(ne, delimiter=',')
+        self.I1=np.nan_to_num(I1)
+        self.pm=polmap
+        #scale and flip to data
+        B0=self.pm.B0
+        scale=B0.shape[0]/self.I0s.shape[0]
+        I0z=zoom(self.I0s, scale)
+        crop=(I0z.shape[1]-B0.shape[1])/2
+        I0zc=I0z[:,crop:-crop]
+        self.I0zcn=np.flipud(I0zc/I0zc.max())
+        I1z=zoom(self.I1, scale)
+        I1zc=I1z[:,crop:-crop]
+        self.I1zc=np.flipud(I1z[:,crop:-crop])
+        self.cmap='seismic'
+    def register(self):
+        self.transform=ird.similarity(self.pm.R0, self.I0zcn, numiter=3)
+        self.IT=ird.transform_img_dict(self.I1zc, self.transform)
+        self.data=5.99e18*self.pm.alpha/self.I1T
+        
 class NeLMap:
     def __init__(self, filename, scale, multiply_by=1, flip_lr=False, rot_angle=None):
         d=np.loadtxt(open(filename,"r"),delimiter=",")
@@ -123,7 +207,7 @@ class NeLMap:
         scale=self.scale
         px_origin=self.origin_crop
         return (int(mm[0]*scale+px_origin[0]),int(mm[1]*scale+px_origin[1]))
-        
+            
 class OpticalFrames:
     def __init__(self, start, IF):
         self.load_images()
@@ -220,14 +304,7 @@ class OpticalFrames:
             fig, ax=plt.subplots(figsize=(12,8))
         ax.plot(self.mm, self.lo, label='t='+str(self.frame_times[fn])+' ns', lw=4)
         
-def convert_to_alpha(B0,BT,S0,ST, beta):
-    N0=S0/B0
-    N1=ST/BT
-    diff=N0-N1
-    diff=np.nan_to_num(diff)
-    beta=beta*np.pi/180
-    alpha=(180/np.pi)*0.5*np.arcsin(diff*np.tan(beta)/2.0)
-    return alpha
+
 
 class PolarimetryMap:
     def __init__(self, B0fn, B1fn, S0fn, S1fn):
@@ -286,10 +363,8 @@ class FaradayMap:
         
         I1z=zoom(self.I1, scale)
         I1zc=I1z[:,crop:-crop]
-        self.I1zc=np.fliplr(I1z[:,crop:-crop])
+        self.I1zc=np.flipud(I1z[:,crop:-crop])
     def register(self):
         self.I0T, self.I1T, self.scale, self.angle, (self.t0, self.t1)=ir.transform_like(self.pm.B0,self.I0zcn, self.I1zc)
         self.B=5.99e18*self.pm.alpha/self.I1T
         
-def mm_to_px(mm, px_origin, scale):
-    return (int(mm[0]*scale+px_origin_crop[0]),int(mm[1]*scale+px_origin_crop[1]))
