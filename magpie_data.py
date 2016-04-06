@@ -23,20 +23,30 @@ class DataMap:
             fig, ax=plt.subplots(figsize=(12,8))
         d=self.data*multiply_by
         return ax.imshow(d, clim=clim, cmap=self.cmap)
-    def set_origin(self, origin, crop_to):
+    def set_origin(self, origin, extent):
         self.origin=origin
-        ymin=origin[0]+crop_to[0]*self.scale
-        ymax=origin[0]+crop_to[1]*self.scale
-        xmin=origin[1]+crop_to[2]*self.scale
-        xmax=origin[1]+crop_to[3]*self.scale
-        self.origin_crop=[crop_to[0]*self.scale,crop_to[2]*self.scale]
+        ymin=origin[0]+extent[0]*self.scale
+        ymax=origin[0]+extent[1]*self.scale
+        xmin=origin[1]+extent[2]*self.scale
+        xmax=origin[1]+extent[3]*self.scale
+        self.origin_crop=(-extent[0]*self.scale,-extent[2]*self.scale)
         self.data_c=self.data[ymin:ymax, xmin:xmax]
-        self.extent=[x_min,x_max,y_min,y_max]
+        self.extent=extent[2:4]+extent[0:2]
     def plot_data_mm(self, clim=None, multiply_by=1, ax=None):
         if ax is None:
             fig, ax=plt.subplots(figsize=(12,8))
         d=self.data_c*multiply_by
         return ax.imshow(d, cmap=self.cmap, interpolation='none', clim=clim, extent=self.extent, aspect=1)
+    def plot_contours_px(self, levels=None, multiply_by=1, ax=None, color='k'):
+        if ax is None:
+            fig, ax=plt.subplots(figsize=(12,8))
+        d=self.data*multiply_by
+        return ax.contour(d, levels, origin='image', hold='on',colors=color)
+    def plot_contourf_mm(self, levels=None, multiply_by=1, ax=None):
+        if ax is None:
+            fig, ax=plt.subplots(figsize=(12,8))
+        d=self.data_c*multiply_by
+        return ax.contourf(d, levels=levels, cmap=self.cmap,extent=self.extent,origin='image',aspect=1)
     def create_lineout(self, start=(0,0), end=(0,0), lineout_width=20):
         '''
         start and end are in mm on the grid defined by the origin you just set
@@ -73,13 +83,20 @@ class NeLMap2(DataMap):
         self.cmap=cmaps.cmaps['inferno']
         
 class PolarimetryMap2(DataMap):
-    def __init__(self, R0fn, R1fn, B0fn, B1fn, S0fn, S1fn):
+    def __init__(self, R0fn, R1fn, B0fn, B1fn, S0fn, S1fn, rot_angle=None):
         self.R0=plt.imread(R0fn)
         self.R1=np.fliplr(plt.imread(R1fn))
         self.B0=plt.imread(B0fn)
         self.B1=np.fliplr(plt.imread(B1fn))
         self.S0=plt.imread(S0fn)
         self.S1=np.fliplr(plt.imread(S1fn))
+        if rot_angle is not None:
+            self.R0=rotate(self.R0, rot_angle)
+            self.R1=rotate(self.R1, rot_angle)
+            self.B0=rotate(self.B0, rot_angle)
+            self.B1=rotate(self.B1, rot_angle)
+            self.S0=rotate(self.S0, rot_angle)
+            self.S1=rotate(self.S1, rot_angle)
         #normalise registration images
         R0s=self.R0.sum()
         R1s=self.R1.sum()
@@ -97,7 +114,7 @@ class PolarimetryMap2(DataMap):
         beta=beta*np.pi/180
         self.data=(180/np.pi)*0.5*np.arcsin(self.diff*np.tan(beta)/2.0)
         
-class InteferogramOntoAlpha(DataMap):
+class InterferogramOntoAlpha(DataMap):
     def __init__(self, polmap, I0, I1):
         I0=plt.imread(I0)
         self.I0s=np.sum(I0,2)
@@ -131,23 +148,26 @@ class FaradayMap2(DataMap):
         I0=plt.imread(I0)
         self.I0s=np.sum(I0,2)
         I1=np.loadtxt(ne, delimiter=',')
+        I1=I1-np.nan_to_num(I1).min()
         self.I1=np.nan_to_num(I1)
         self.pm=polmap
         #scale and flip to data
         B0=self.pm.B0
         scale=B0.shape[0]/self.I0s.shape[0]
+
         I0z=zoom(self.I0s, scale)
         crop=(I0z.shape[1]-B0.shape[1])/2
         I0zc=I0z[:,crop:-crop]
         self.I0zcn=np.flipud(I0zc/I0zc.max())
+        
         I1z=zoom(self.I1, scale)
-        I1zc=I1z[:,crop:-crop]
         self.I1zc=np.flipud(I1z[:,crop:-crop])
+        
         self.cmap='seismic'
     def register(self):
         self.transform=ird.similarity(self.pm.R0, self.I0zcn, numiter=3)
         self.IT=ird.transform_img_dict(self.I1zc, self.transform)
-        self.data=5.99e18*self.pm.alpha/self.I1T
+        self.data=5.99e18*self.pm.data/self.IT
         
 class NeLMap:
     def __init__(self, filename, scale, multiply_by=1, flip_lr=False, rot_angle=None):
