@@ -8,7 +8,7 @@ import os
 import image_registration as ir
 from skimage.measure import profile_line
 import imreg_dft as ird
-
+import images2gif as ig
 
 class DataMap:
     def __init__(self, flip_lr, rot_angle, multiply_by, scale):
@@ -25,8 +25,8 @@ class DataMap:
         return ax.imshow(d, clim=clim, cmap=self.cmap)
     def set_origin(self, origin, extent):
         self.origin=origin
-        ymin=origin[0]+extent[0]*self.scale
-        ymax=origin[0]+extent[1]*self.scale
+        ymin=origin[0]-extent[1]*self.scale
+        ymax=origin[0]-extent[0]*self.scale
         xmin=origin[1]+extent[2]*self.scale
         xmax=origin[1]+extent[3]*self.scale
         self.origin_crop=(-extent[0]*self.scale,-extent[2]*self.scale)
@@ -67,7 +67,7 @@ class DataMap:
     def mm_to_px(self,mm):
         scale=self.scale
         px_origin=self.origin_crop
-        return (int(-mm[0]*scale+px_origin[0]),int(mm[1]*scale+px_origin[1]))
+        return (int(mm[0]*scale+px_origin[0]),int(mm[1]*scale+px_origin[1]))
     
 class NeLMap2(DataMap):
     def __init__(self, filename, scale, multiply_by=1, flip_lr=False, rot_angle=None):
@@ -323,6 +323,18 @@ class OpticalFrames:
         if ax is None:
             fig, ax=plt.subplots(figsize=(12,8))
         ax.plot(self.mm, self.lo, label='t='+str(self.frame_times[fn])+' ns', lw=4)
+    def save_gif(self, filename, clim):
+        hot_im=[]
+        for im in self.s_c:
+            ax.imshow(im, cmap='afmhot', clim=clim)
+            plt.axis('off')
+            fig.tight_layout()
+            fig.canvas.draw()
+            w,h=fig.canvas.get_width_height()
+            buf=np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8)
+            buf.shape=(h,w,3)
+            hot_im.append(buf)
+        ig.writeGif(filename+'.gif',hot_im, duration=0.2)
         
 
 
