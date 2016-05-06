@@ -16,6 +16,7 @@ class DataMap:
             self.d=np.fliplr(self.d)
         if rot_angle is not None:
             self.d=rotate(self.d, rot_angle)
+        self.rot_angle=rot_angle
         self.data=self.d*multiply_by
         self.scale=scale
     def plot_data_px(self, clim=None, multiply_by=1, ax=None):
