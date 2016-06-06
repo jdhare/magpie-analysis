@@ -5,6 +5,9 @@ import scipy.integrate
 
 class ScopeChannel:
     def __init__(self, shot, scope, channel):
+        self.shot=shot
+        self.scope=scope
+        self.channe=channel
         fn="//LINNA/scopes/scope"+scope+"_"+shot
         self.time=np.loadtxt(fn+"time")
         self.data=np.loadtxt(fn+"_"+channel)[1:]
