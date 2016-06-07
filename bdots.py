@@ -11,6 +11,29 @@ class ScopeChannel:
         fn="//LINNA/scopes/scope"+scope+"_"+shot
         self.time=np.loadtxt(fn+"time")
         self.data=np.loadtxt(fn+"_"+channel)[1:]
+        
+class MitlBdots:
+    def __init__(self, shot):
+        self.shot=shot
+        scope="3"
+        mitl_bdots=['A1','A2','B1','B2']
+        self.mbds=[ScopeChannel(shot, scope, m) for m in mitl_bdots]
+    def truncate(self, threshold=1.0, window=1000):
+        for m in self.mbds:
+            start=np.nonzero(abs(m.data)>threshold)[0][0]
+            start=start-100
+            if start<0:
+                start=0
+            m.time_tr=m.time[start:start+window]
+            m.time_tr0=m.time_tr-m.time_tr[50]
+            zero=np.mean(m.data[0:start])
+            m.data_tr=m.data[start:start+window]-zero
+    def integrate(self):
+        for m in self.mbds:
+            m.B=scipy.integrate.cumtrapz(m.data_tr,m.time_tr)
+            m.time_B=m.time_tr[:-1]
+            m.time_B0=m.time_tr0[:-1]
+
                 
 class Bdot_pair:
     def __init__(self, shot, scope="1", bdot1='A1', bdot2='A2'):
