@@ -90,7 +90,8 @@ class Plasma:
         self.mfp_e=self.V_te/self.nu_ei#cm
         #other
         self.eta_perp=1.03e-2*self.Z*self.col_log_ei*self.T_e**-1.5 #Ohm cm
-        self.visc=2e19*T_e**2.5/(self.col_log_ei*A**0.5*Z**4*n_i) #cm^2/s
+        self.visc=2e19*T_i**2.5/(self.col_log_ei*A**0.5*Z**4*n_i) #Ryutov 99 cm^2/s
+        self.D_M=8e5*self.col_log_ei*Z*T_e**-1.5 #magnetic diffusivity, counterpart to viscosity, cm^2/s
         self.sigma_par=0.028*n_e/self.nu_ei#this could be in SI. Probably check before using elsewhere...
         self.KE=0.5*m_i*V**2*1e-7/1.6e-19#convert to SI (1e-7 ergs) and then to eV (1.6e-19)
         self.KE_Therm=self.KE/1.5
@@ -130,3 +131,111 @@ def col_log_eis(T_e,n_e,Z):
         col_log=24-np.log(n_e**0.5*T_e**-1.0)
     return col_log
 col_log_ei=np.vectorize(col_log_eis)
+
+#CGS for v, n, eV for T, m in atomic mass units
+#test particle a slows on a field of particles b
+#nu_ab is not equal to nu_ba!!!
+class Particle:
+    def __init__(self, m, Z, v, T, n):
+        self.m=float(m)
+        self.m_g=m*c.m_u*1e3 #convert to grams
+        self.T_erg=T*c.e*1e7#convert to ergs
+        self.T=float(T)
+        self.Z=Z
+        self.v_T=np.sqrt(self.T_erg/self.m_g)
+        if v==None:
+            self.v=self.v_T
+        else:
+            self.v=float(v)
+        self.n=float(n)
+        self.e=Z*4.8e-10#in stat coloumbs
+        
+def x_ab(a,b):
+    return b.m_g*a.v**2/(2*b.T_erg)
+    
+def col_log(a,b, T_e=None):
+    if a.Z is -1 and b.Z is -1:#electron electron
+        print('Electron-Electron')
+        return 23.5-np.log(a.n**0.5*a.T**-1.25)-(1e-5+((np.log(a.T-2))**2)/16.0)**0.5
+    if a.Z is not -1 and b.Z is not -1: #ion ion
+        v_D=np.abs(a.v-b.v)       
+        if a.v_T<v_D and b.v_T<v_D:
+            print('Counter-streaming ions')
+            beta_D=v_D/(c.c*1e2)
+            n_e=a.Z*a.n+b.Z*b.n
+            return 43-np.log(a.Z*b.Z*(a.m+b.m)/(a.m*b.m*beta_D**2)*(n_e/T_e)**0.5)
+        else:
+            print('Mixed ion-ion')
+            return 23-np.log(a.Z*b.Z*(a.m+b.m)/(a.m*a.T+b.m*b.T)*(a.n*a.Z**2/a.T+b.n*b.Z**2/b.T)**0.5)
+    else: #electron ion
+        if a.Z is -1:
+            el=a
+            io=b
+            print('b is ion, a is electron')
+        else:
+            el=b
+            io=a
+            print('a is ion, b is electron')
+        #Define the three 'decision temperatures'
+        Te=el.T
+        Ti=io.T*el.m/io.m
+        TZ=10*io.Z**2
+        if Ti<Te and Te<TZ: #see NRL formulary pg 34
+            print('Ion-Electron, T_i*m_e/m_i<T_e<10 Z^2')
+            return 23-np.log(el.n**0.5*io.Z*el.T**-1.5)
+        elif Ti<TZ and TZ<Te:
+            print('Ion-Electron, T_i*m_e/m_i<10 Z^2<T_e')
+            return 24-np.log(el.n**0.5*el.T**-1.0)
+        elif Tie<io.Z*Ti:
+            print('Ion-Electron, T_i*m_e/m_i<10 Z^2<T_e')
+            return 30-np.log(io.n**0.5*io.T**-1.5*io.Z**2/io.m)
+        else:
+            print('Ion-Electron: Whoops! You broke Physics!!!')
+            return 2
+
+        
+def nu_0(a,b, T_e=None):
+    return 4*np.pi*a.e**2*b.e**2*col_log(a,b, T_e)*b.n/(a.m_g**2*np.abs(a.v)**3)
+
+def psi(x, steps=1e3):
+    t=np.linspace(0, x, steps)
+    integrand=t**0.5*np.exp(-t)
+    return 2/np.sqrt(np.pi)*np.trapz(integrand, x=t)
+
+def psi_prime(x):
+    return 2/np.sqrt(np.pi)*x**0.5*np.exp(-x)
+
+def nu_slowing(a,b, T_e=None):
+    xab=x_ab(a,b)
+    pab=psi(xab)
+    return (1+a.m/b.m)*pab*nu_0(a,b, T_e)
+
+def nu_transverse(a,b, T_e=None):
+    xab=x_ab(a,b)
+    pab=psi(xab)
+    ppab=psi_prime(xab)
+    return 2*((1-1/(2*xab))*pab+ppab)*nu_0(a,b, T_e)
+
+def nu_parallel(a,b, T_e=None):
+    xab=x_ab(a,b)
+    pab=psi(xab)
+    return (pab/xab)*nu_0(a,b, T_e)
+
+def nu_energy(a,b, T_e=None):
+    xab=x_ab(a,b)
+    pab=psi(xab)
+    ppab=psi_prime(xab)
+    return 2*((a.m/b.m)*pab-ppab)*nu_0(a,b, T_e)
+
+def l_slowing(a,b, T_e=None):
+    return a.v/nu_slowing(a,b,T_e)
+
+def l_parallel(a,b, T_e=None):
+    return a.v/nu_parallel(a,b,T_e)
+
+def l_transverse(a,b, T_e=None):
+    return a.v/nu_transverse(a,b,T_e)
+
+def l_energy(a,b, T_e=None):
+    return a.v/nu_energy(a,b,T_e)
+    
