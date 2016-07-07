@@ -68,7 +68,7 @@ class DataMap:
     def mm_to_px(self,mm):
         scale=self.scale
         px_origin=self.origin_crop
-        return (int(mm[0]*scale+px_origin[0]),int(mm[1]*scale+px_origin[1]))
+        return (int(-mm[0]*scale+px_origin[0]),int(mm[1]*scale+px_origin[1]))
     
 class NeLMap2(DataMap):
     def __init__(self, filename, scale, multiply_by=1, flip_lr=False, rot_angle=None):
