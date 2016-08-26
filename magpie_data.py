@@ -103,8 +103,8 @@ class PolarimetryMap2(DataMap):
         R1s=self.R1.sum()
         self.R0=self.R0*R1s/R0s
         self.cmap='seismic'
-    def register(self):
-        self.result=ird.similarity(self.R0, self.R1, numiter=3)
+    def register(self, constraints=None):
+        self.result=ird.similarity(self.R0, self.R1, numiter=3, constraints=constraints)
         self.BT=ird.transform_img_dict(self.B1, self.result)
         self.ST=ird.transform_img_dict(self.S1, self.result)
     def convert_to_alpha(self, beta=3.0):
@@ -134,8 +134,8 @@ class InterferogramOntoAlpha(DataMap):
         I1zc=I1z[:,crop:-crop]
         self.I1zcf=np.flipud(I1zc)
         self.cmap='gray'
-    def register(self):
-        self.transform=ird.similarity(self.pm.R0, self.I0zcn, numiter=3)
+    def register(self, constraints=None):
+        self.transform=ird.similarity(self.pm.R0, self.I0zcn, numiter=3, constraints=constraints)
         self.data=ird.transform_img_dict(self.I1zcf, self.transform)
     def plot_overlay_px(self, clim=None, ax=None, transparency=0.8):
         if ax is None:
@@ -165,8 +165,8 @@ class FaradayMap2(DataMap):
         self.I1zc=np.flipud(I1z[:,crop:-crop])
         
         self.cmap='seismic'
-    def register(self):
-        self.transform=ird.similarity(self.pm.R0, self.I0zcn, numiter=3)
+    def register(self, constraints=None):
+        self.transform=ird.similarity(self.pm.R0, self.I0zcn, numiter=3, constraints=constraints)
         self.IT=ird.transform_img_dict(self.I1zc, self.transform)
         self.data=5.99e18*self.pm.data/self.IT
         
