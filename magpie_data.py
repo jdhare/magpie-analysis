@@ -9,6 +9,7 @@ import image_registration as ir
 from skimage.measure import profile_line
 import imreg_dft as ird
 import images2gif as ig
+import pickle
 
 class DataMap:
     def __init__(self, flip_lr, rot_angle, multiply_by, scale):
@@ -19,6 +20,7 @@ class DataMap:
         self.rot_angle=rot_angle
         self.data=self.d*multiply_by
         self.scale=scale
+        self.s_name=os.path.basename(self.fn)[:8]
     def plot_data_px(self, clim=None, multiply_by=1, ax=None):
         if ax is None:
             fig, ax=plt.subplots(figsize=(12,8))
@@ -69,9 +71,15 @@ class DataMap:
         scale=self.scale
         px_origin=self.origin_crop
         return (int(-mm[0]*scale+px_origin[0]),int(mm[1]*scale+px_origin[1]))
+    def pickle_transform(self, fn):
+        try:
+            pickle.dump(self.transform, open(fn, 'wb'))
+        except:
+            print('No Transform found!')
     
 class NeLMap2(DataMap):
     def __init__(self, filename, scale, multiply_by=1, flip_lr=False, rot_angle=None):
+        self.fn=filename[:8]
         d=np.loadtxt(open(filename,"r"),delimiter=",")
         d=d-np.nan_to_num(d).min()
         d=np.nan_to_num(d)
@@ -85,6 +93,7 @@ class NeLMap2(DataMap):
         
 class PolarimetryMap2(DataMap):
     def __init__(self, R0fn, R1fn, B0fn, B1fn, S0fn, S1fn, rot_angle=None):
+        self.fn=R0fn[:8]
         self.R0=plt.imread(R0fn)
         self.R1=np.fliplr(plt.imread(R1fn))
         self.B0=plt.imread(B0fn)
@@ -103,10 +112,14 @@ class PolarimetryMap2(DataMap):
         R1s=self.R1.sum()
         self.R0=self.R0*R1s/R0s
         self.cmap='seismic'
-    def register(self, constraints=None):
-        self.result=ird.similarity(self.R0, self.R1, numiter=3, constraints=constraints)
-        self.BT=ird.transform_img_dict(self.B1, self.result)
-        self.ST=ird.transform_img_dict(self.S1, self.result)
+    def register(self, constraints=None, transform=None):
+        if transform is None:
+            t=ird.similarity(self.R0, self.R1, numiter=3, constraints=constraints)
+            transform = { your_key: t[your_key] for your_key in ['angle','scale','tvec'] }
+        self.transform=transform
+        self.RT=ird.transform_img_dict(self.R1, self.transform)
+        self.BT=ird.transform_img_dict(self.B1, self.transform)
+        self.ST=ird.transform_img_dict(self.S1, self.transform)
     def convert_to_alpha(self, beta=3.0):
         self.N0=self.S0/self.B0
         self.N1=self.ST/self.BT
@@ -117,6 +130,7 @@ class PolarimetryMap2(DataMap):
         
 class InterferogramOntoAlpha(DataMap):
     def __init__(self, polmap, I0, I1):
+        self.fn=I0[:8]
         I0=plt.imread(I0)
         self.I0s=np.sum(I0,2)
         self.pm=polmap
@@ -134,8 +148,12 @@ class InterferogramOntoAlpha(DataMap):
         I1zc=I1z[:,crop:-crop]
         self.I1zcf=np.flipud(I1zc)
         self.cmap='gray'
-    def register(self, constraints=None):
-        self.transform=ird.similarity(self.pm.R0, self.I0zcn, numiter=3, constraints=constraints)
+    def register(self, constraints=None, transform=None):
+        if transform is None:
+            t=ird.similarity(self.pm.R0, self.I0zcn, numiter=3, constraints=constraints)
+            transform = { your_key: t[your_key] for your_key in ['angle','scale','tvec'] }
+        self.transform=transform
+        self.I0T=ird.transform_img_dict(self.I0zcn, self.transform)
         self.data=ird.transform_img_dict(self.I1zcf, self.transform)
     def plot_overlay_px(self, clim=None, ax=None, transparency=0.8):
         if ax is None:
@@ -146,6 +164,7 @@ class InterferogramOntoAlpha(DataMap):
 
 class FaradayMap2(DataMap):
     def __init__(self, polmap, I0, ne):
+        self.fn=polmap.fn[:8]
         I0=plt.imread(I0)
         self.I0s=np.sum(I0,2)
         I1=np.loadtxt(ne, delimiter=',')
@@ -165,10 +184,14 @@ class FaradayMap2(DataMap):
         self.I1zc=np.flipud(I1z[:,crop:-crop])
         
         self.cmap='seismic'
-    def register(self, constraints=None):
-        self.transform=ird.similarity(self.pm.R0, self.I0zcn, numiter=3, constraints=constraints)
-        self.IT=ird.transform_img_dict(self.I1zc, self.transform)
-        self.data=5.99e18*self.pm.data/self.IT
+    def register(self, constraints=None, transform=None):
+        if transform is None:
+            t=ird.similarity(self.pm.R0, self.I0zcn, numiter=3, constraints=constraints)
+            transform = { your_key: t[your_key] for your_key in ['angle','scale','tvec'] }
+        self.transform=transform
+        self.I0T=ird.transform_img_dict(self.I0zcn, self.transform)
+        self.I1T=ird.transform_img_dict(self.I1zc, self.transform)
+        self.data=5.99e18*self.pm.data/self.I1T
         
 class NeLMap:
     def __init__(self, filename, scale, multiply_by=1, flip_lr=False, rot_angle=None):
