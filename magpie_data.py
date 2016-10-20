@@ -91,6 +91,26 @@ class NeLMap2(DataMap):
         self.scale=scale
         self.cmap=cmaps.cmaps['inferno']
         
+class Interferogram(DataMap):
+    def __init__(self, filename, scale, flip_lr=False, rot_angle=None):
+        self.fn=filename[:8]
+        d=plt.imread(filename)
+        if flip_lr is True:
+            d=np.fliplr(d)
+        if rot_angle is not None:
+            d=rotate(d, rot_angle)
+        self.data=d
+        self.scale=scale
+    def plot_data_px(self, ax=None):
+        if ax is None:
+            fig, ax=plt.subplots(figsize=(12,8))
+        return ax.imshow(self.data)
+    def plot_data_mm(self, ax=None):
+        if ax is None:
+            fig, ax=plt.subplots(figsize=(12,8))
+        d=self.data_c
+        return ax.imshow(d, interpolation='none', extent=self.extent, aspect=1)
+
 class PolarimetryMap2(DataMap):
     def __init__(self, R0fn, R1fn, B0fn, B1fn, S0fn, S1fn, rot_angle=None):
         self.fn=R0fn[:8]
