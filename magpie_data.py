@@ -201,7 +201,7 @@ class FaradayMap2(DataMap):
         self.I0zcn=np.flipud(I0zc/I0zc.max())
         
         I1z=zoom(self.I1, scale)
-        self.I1zc=np.flipud(I1z[:,crop:-crop])
+        self.I1zc=I1z[:,crop:-crop]
         
         self.cmap='seismic'
     def register(self, constraints=None, transform=None):
