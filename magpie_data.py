@@ -146,7 +146,7 @@ class PolarimetryMap2(DataMap):
         diff=self.N0-self.N1
         self.diff=np.nan_to_num(diff)
         beta=beta*np.pi/180
-        self.data=(180/np.pi)*0.5*np.arcsin(self.diff*np.tan(beta)/2.0)
+        self.data=-(180/np.pi)*0.5*np.arcsin(self.diff*np.tan(beta)/2.0)
         
 class InterferogramOntoAlpha(DataMap):
     def __init__(self, polmap, I0, I1):
