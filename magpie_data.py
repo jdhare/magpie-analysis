@@ -183,7 +183,7 @@ class InterferogramOntoAlpha(DataMap):
 
 
 class FaradayMap2(DataMap):
-    def __init__(self, polmap, I0, ne):
+    def __init__(self, polmap, I0, ne, flip_ne=False):
         self.fn=polmap.fn[:8]
         I0=plt.imread(I0)
         self.I0s=np.sum(I0,2)
@@ -201,7 +201,9 @@ class FaradayMap2(DataMap):
         self.I0zcn=np.flipud(I0zc/I0zc.max())
         
         I1z=zoom(self.I1, scale)
-        self.I1zc=I1z[:,crop:-crop]
+        self.I1zc=np.flipud(I1z[:,crop:-crop])
+        if flip_ne is True:
+            self.I1zc=np.flipud(self.I1zc)
         
         self.cmap='seismic'
     def register(self, constraints=None, transform=None):
