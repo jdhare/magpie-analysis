@@ -159,13 +159,13 @@ class InterferogramOntoAlpha(DataMap):
         scale=R0.shape[0]/self.I0s.shape[0]
         I0z=zoom(self.I0s, scale)
         crop=(I0z.shape[1]-R0.shape[1])/2
-        I0zc=I0z[:,crop:-crop]
+        I0zc=I0z[:,crop:crop-R0.shape[1]]
         self.I0zcn=np.flipud(I0zc/I0zc.max())
         #do the same to the inteferogram
         I1=plt.imread(I1)
         I1s=np.sum(I1,2)
         I1z=zoom(I1s, scale)
-        I1zc=I1z[:,crop:-crop]
+        I1zc=I1z[:,crop:crop-R0.shape[1]]
         self.I1zcf=np.flipud(I1zc)
         self.cmap='gray'
     def register(self, constraints=None, transform=None):
@@ -196,15 +196,21 @@ class FaradayMap2(DataMap):
         scale=B0.shape[0]/self.I0s.shape[0]
 
         I0z=zoom(self.I0s, scale)
-        crop=(I0z.shape[1]-B0.shape[1])/2
-        I0zc=I0z[:,crop:-crop]
+        crop=(I0z.shape[1]-B0.shape[1])//2
+        if B0.shape[1]%2==0:
+            I0zc=I0z[:,crop:-crop]
+        elif B0.shape[1]%2==1:
+            I0zc=I0z[:,crop:-crop-1]
         self.I0zcn=np.flipud(I0zc/I0zc.max())
-        
         I1z=zoom(self.I1, scale)
-        self.I1zc=np.flipud(I1z[:,crop:-crop])
+        if B0.shape[1]%2==0:
+            I1zc=I1z[:,crop:-crop]
+        elif B0.shape[1]%2==1:
+            I1zc=I1z[:,crop:-crop-1]
+        self.I1zc=np.flipud(I1zc)
         if flip_ne is True:
             self.I1zc=np.flipud(self.I1zc)
-        
+            
         self.cmap='seismic'
     def register(self, constraints=None, transform=None):
         if transform is None:
