@@ -194,19 +194,17 @@ class FaradayMap2(DataMap):
         #scale and flip to data
         B0=self.pm.B0
         scale=B0.shape[0]/self.I0s.shape[0]
-
         I0z=zoom(self.I0s, scale)
+        self.I0z=I0z
         crop=(I0z.shape[1]-B0.shape[1])//2
-        if B0.shape[1]%2==0:
-            I0zc=I0z[:,crop:-crop]
-        elif B0.shape[1]%2==1:
-            I0zc=I0z[:,crop:-crop-1]
-        self.I0zcn=np.flipud(I0zc/I0zc.max())
         I1z=zoom(self.I1, scale)
-        if B0.shape[1]%2==0:
+        if (B0.shape[1]+I0z.shape[1])%2==0:
+            I0zc=I0z[:,crop:-crop]
             I1zc=I1z[:,crop:-crop]
-        elif B0.shape[1]%2==1:
+        elif (B0.shape[1]+I0z.shape[1])%2==1:
+            I0zc=I0z[:,crop:-crop-1]
             I1zc=I1z[:,crop:-crop-1]
+        self.I0zcn=np.flipud(I0zc/I0zc.max())
         self.I1zc=np.flipud(I1zc)
         if flip_ne is True:
             self.I1zc=np.flipud(self.I1zc)
