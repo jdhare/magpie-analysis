@@ -114,6 +114,7 @@ class Interferogram(DataMap):
 class PolarimetryMap2(DataMap):
     def __init__(self, R0fn, R1fn, B0fn, B1fn, S0fn, S1fn, rot_angle=None):
         self.fn=R0fn[:8]
+        self.rot_angle=rot_angle
         self.R0=plt.imread(R0fn)
         self.R1=np.fliplr(plt.imread(R1fn))
         self.B0=plt.imread(B0fn)
@@ -191,24 +192,38 @@ class FaradayMap2(DataMap):
         I1=I1-np.nan_to_num(I1).min()
         self.I1=np.nan_to_num(I1)
         self.pm=polmap
+        #flip cos interferometry camera images are upside down wrt faraday
+        self.I0s=np.flipud(self.I0s)
+        self.I1=np.flipud(self.I1)
+        #rotate data to match polarisation map
+        if self.pm.rot_angle is not None:
+            self.I0s=rotate(self.I0s,self.pm.rot_angle)
+            self.I1=rotate(self.I1,self.pm.rot_angle)
+        #in order to perform image registration, the two images must be the same size
         #scale and flip to data
-        B0=self.pm.B0
-        scale=B0.shape[0]/self.I0s.shape[0]
-        I0z=zoom(self.I0s, scale)
+        R0=self.pm.R0
+        scale_y=R0.shape[0]/self.I0s.shape[0]
+        scale_x=R0.shape[1]/self.I0s.shape[1]
+        
+        if scale_y>scale_x:
+            scale=scale_y
+            I0z=zoom(self.I0s, scale)
+            I1z=zoom(self.I1, scale)
+            crop=(I0z.shape[1]-R0.shape[1])//2
+            I0zc=I0z[:,crop:crop+R0.shape[1]]
+            I1zc=I1z[:,crop:crop+R0.shape[1]]
+        if scale_x>scale_y:
+            scale=scale_x
+            I0z=zoom(self.I0s, scale)
+            I1z=zoom(self.I1, scale)
+            crop=(I0z.shape[0]-R0.shape[0])//2
+            I0zc=I0z[crop:crop+R0.shape[0],:]
+            I1zc=I1z[crop:crop+R0.shape[0],:]
         self.I0z=I0z
-        crop=(I0z.shape[1]-B0.shape[1])//2
-        I1z=zoom(self.I1, scale)
-        if (B0.shape[1]+I0z.shape[1])%2==0:
-            I0zc=I0z[:,crop:-crop]
-            I1zc=I1z[:,crop:-crop]
-        elif (B0.shape[1]+I0z.shape[1])%2==1:
-            I0zc=I0z[:,crop:-crop-1]
-            I1zc=I1z[:,crop:-crop-1]
-        self.I0zcn=np.flipud(I0zc/I0zc.max())
-        self.I1zc=np.flipud(I1zc)
+        self.I0zcn=I0zc/I0zc.max()
+        self.I1zc=I1zc
         if flip_ne is True:
-            self.I1zc=np.flipud(self.I1zc)
-            
+            self.I1zc=np.flipud(self.I1zc)   
         self.cmap='seismic'
     def register(self, constraints=None, transform=None):
         if transform is None:
