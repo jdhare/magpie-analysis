@@ -388,12 +388,16 @@ class OpticalFrames:
         if ax is None:
             fig, ax=plt.subplots(figsize=(12,8))
         ax.plot(self.mm, self.lo, label='t='+str(self.frame_times[fn])+' ns', lw=4)
-    def save_gif(self, filename, clim):
+    def save_gif(self, filename, clim, width=6):
+        w=width
+        h=w/self.s_c[0].shape[1]*self.s_c[0].shape[0]
+        fig, ax=plt.subplots(figsize=(w,h))
         hot_im=[]
         for im in self.s_c:
             ax.imshow(im, cmap='afmhot', clim=clim)
             plt.axis('off')
-            fig.tight_layout()
+            fig.subplots_adjust(left=0, bottom=0, right=1.0, top=1.0,
+                wspace=0, hspace=0)
             fig.canvas.draw()
             w,h=fig.canvas.get_width_height()
             buf=np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8)
