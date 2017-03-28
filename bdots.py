@@ -41,12 +41,17 @@ class Bdot_pair:
         #bdot signals 1 and 2
         self.bd1=ScopeChannel(shot, scope, bdot1)
         self.bd2=ScopeChannel(shot, scope, bdot2)
-    def truncate(self, threshold=1.0, window=1000, cal=[1,1]):
+    def zero(self):
+        self.bd1.data=self.bd1.data-self.bd1.data[0]
+        self.bd2.data=self.bd2.data-self.bd2.data[0]
+    def truncate(self, threshold=1.0, window=1000, cal=[1,1], fix_start=None):
         #find the start of the current pulse with a  high threshold
         sig1=self.bd1.data
         start=np.nonzero(abs(sig1)>threshold)[0][0]
         #back off a bit so we can see the zero signal
         self.start=start-100
+        if fix_start is not None:
+            self.start=find_nearest(self.bd1.time,fix_start)
         #reverse the array to find the end of the current pulse with a high threshold
         #end=np.nonzero(abs(sig1[::-1])>threshold)[0][0]
         #back off a bit so we can see the zero signal
@@ -99,7 +104,7 @@ class Bdot_pair:
         ax.legend()
         
 class Bdots:
-    def __init__(self, shot, pairs, attenuations, diameters, scope="1", threshold=1.0):
+    def __init__(self, shot, pairs, attenuations, diameters, scope="1", threshold=1.0, window=1000, fix_start=None):
         self.shot=shot
         self.bd={}
         for k, v in  pairs.items():
@@ -108,7 +113,8 @@ class Bdots:
             area=(1e-3*diameters[k]/2.0)**2*np.pi
             calibration=[attenuations[bd1]/area, attenuations[bd2]/area]
             self.bd[k]=Bdot_pair(shot, scope, bdot1=bd1, bdot2=bd2)
-            self.bd[k].truncate(threshold=threshold,cal=calibration)
+            self.bd[k].zero()
+            self.bd[k].truncate(threshold=threshold,cal=calibration, window=window, fix_start=fix_start)
             self.bd[k].integrate()
     def plot(self, name, data, ax=None, flip=1):
         self.bd[name].plot(data, ax, flip, bdname=name)
@@ -195,3 +201,7 @@ class Rogowskis:
         if d2 is not None:
             ax.plot(t, scale*d2, label=l2, lw=4)
         ax.legend()
+        
+def find_nearest(array,value):
+    idx = (np.abs(array-value)).argmin()
+    return idx
