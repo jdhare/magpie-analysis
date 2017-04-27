@@ -85,7 +85,7 @@ class Fibre:
                 iv_dict['Z_Te_table']=np.genfromtxt('zb_Spk_C_NLTE.txt', delimiter='       ', skip_header=4)
             elif pp['A'][0][0]==27:
                 iv_dict['Z_Te_table']=np.genfromtxt('zb_Al.dat', delimiter=' ', skip_header=2)
-            elif pp['A'][0][0]==138:
+            elif pp['A'][0][0]==183:
                 iv_dict['Z_Te_table']=np.genfromtxt('zb_W.dat', delimiter=' ')
         elif pp['model']=='Collisional nLTE':
             print('Not a suitable model in most cases, use nLTE instead')
