@@ -4,11 +4,11 @@ import scipy.signal
 import scipy.integrate
 
 class ScopeChannel:
-    def __init__(self, shot, scope, channel):
+    def __init__(self, shot, scope, channel, prefix="//LINNA/scopes/scope"):
         self.shot=shot
         self.scope=scope
         self.channe=channel
-        fn="//LINNA/scopes/scope"+scope+"_"+shot
+        fn=prefix+scope+"_"+shot
         self.time=np.loadtxt(fn+"time")
         self.data=np.loadtxt(fn+"_"+channel)[1:]
         
