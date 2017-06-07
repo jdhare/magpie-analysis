@@ -3,12 +3,15 @@ import matplotlib.pyplot as plt
 import scipy.signal
 import scipy.integrate
 
+class Globals:
+    scope_folder="//LINNA/scopes/scope"
+
 class ScopeChannel:
-    def __init__(self, shot, scope, channel, prefix="//LINNA/scopes/scope"):
+    def __init__(self, shot, scope, channel):
         self.shot=shot
         self.scope=scope
         self.channe=channel
-        fn=prefix+scope+"_"+shot
+        fn=Globals.scope_folder+scope+"_"+shot
         self.time=np.loadtxt(fn+"time")
         self.data=np.loadtxt(fn+"_"+channel)[1:]
         
