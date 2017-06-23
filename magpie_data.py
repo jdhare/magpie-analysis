@@ -32,7 +32,7 @@ class DataMap:
         ymax=origin[0]-extent[0]*self.scale
         xmin=origin[1]+extent[2]*self.scale
         xmax=origin[1]+extent[3]*self.scale
-        self.origin_crop=(-extent[0]*self.scale,-extent[2]*self.scale)
+        self.origin_crop=(extent[1]*self.scale,-extent[2]*self.scale)
         self.data_c=self.data[ymin:ymax, xmin:xmax]
         self.extent=extent[2:4]+extent[0:2]
     def plot_data_mm(self, clim=None, multiply_by=1, ax=None):
@@ -50,14 +50,15 @@ class DataMap:
             fig, ax=plt.subplots(figsize=(12,8))
         d=self.data_c*multiply_by
         return ax.contourf(d, levels=levels, cmap=self.cmap,extent=self.extent,origin='image',aspect=1)
-    def create_lineout(self, start=(0,0), end=(0,0), lineout_width=20):
+    def create_lineout(self, start=(0,0), end=(0,0), lineout_width=20, verbose=False):
         '''
         start and end are in mm on the grid defined by the origin you just set
         '''
         #find coordinates in pixels
         start_px=self.mm_to_px(start)
         end_px=self.mm_to_px(end)
-        print(start_px,end_px)
+        if verbose is True:
+            print(start_px,end_px)
         #use scikit image to do a nice lineout on the cropped array
         self.lo=profile_line(self.data_c, start_px,end_px,linewidth=lineout_width)
         #set up a mm scale centred on 0
